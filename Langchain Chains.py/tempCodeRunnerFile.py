@@ -1,0 +1,1 @@
+ChatOllama(model='tinyllama:latest')
