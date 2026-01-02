@@ -1,9 +1,11 @@
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_community.embeddings.nomic import NomicEmbeddings
+# from langchain_community.embeddings.nomic import NomicEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from dotenv import load_dotenv
 load_dotenv()
 
-emb = NomicEmbeddings(model="nomic-embed-text")
+# emb = NomicEmbeddings(model="nomic-embed-text")
+emb = OllamaEmbeddings(model = 'nomic-embed-text')
 
 text_splitter = SemanticChunker(
     emb,
@@ -23,21 +25,3 @@ docs = text_splitter.create_documents([sample])
 print(len(docs))
 print(docs)
 
-# from langchain_experimental.text_splitter import SemanticChunker
-# from langchain_community.embeddings import NomicEmbeddings
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-# emb = NomicEmbeddings(model="nomic-embed-text")
-
-# text_splitter = SemanticChunker(
-#     emb,
-#     breakpoint_threshold_type="standard_deviation",
-#     breakpoint_threshold_amount=3,
-# )
-
-# docs = text_splitter.create_documents([sample])
-
-# print(len(docs))
-# print(docs)
