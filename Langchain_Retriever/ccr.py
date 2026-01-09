@@ -1,0 +1,71 @@
+# CCR = Contextual Compression Retriever
+# Compressor keeps only the most relevant parts of the document with respect to the query.
+# Useful when documents are lengthy and contain mixed information.
+import os
+from langchain_groq import ChatGroq
+from langchain_ollama import OllamaEmbeddings
+from langchain_core.documents import Document
+from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
+from langchain_classic.retrievers.document_compressors import LLMChainExtractor
+from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
+from dotenv import load_dotenv
+load_dotenv()
+pc=Pinecone()
+embeddings = OllamaEmbeddings(model='nomic-embed-text:latest')
+index_name = os.getenv('INDEX_NAME')
+
+if not pc.has_index(index_name):
+    pc.create_index(
+        name=index_name,
+        dimension=768,
+        metric='cosine',
+        spec=ServerlessSpec(cloud='aws',region='us-east-1'),
+    )
+index=pc.Index(index_name)
+print('Using Pinecone index:',index_name)
+vector_store = PineconeVectorStore(index=index,embedding=embeddings)
+
+docs = [
+    Document(page_content=(
+        """The Grand Canyon is one of the most visited natural wonders in the world.
+        Photosynthesis is the process by which green plants convert sunlight into energy.
+        Millions of tourists travel to see it every year. The rocks date back millions of years."""
+    ), metadata={"source": "Doc1", 'doc-id': 'doc-1'}),
+
+    Document(page_content=(
+        """In medieval Europe, castles were built primarily for defense.
+        The chlorophyll in plant cells captures sunlight during photosynthesis.
+        Knights wore armor made of metal. Siege weapons were often used to breach castle walls."""
+    ), metadata={"source": "Doc2", 'doc-id': 'doc-2'}),
+
+    Document(page_content=(
+        """Basketball was invented by Dr. James Naismith in the late 19th century.
+        It was originally played with a soccer ball and peach baskets. NBA is now a global league."""
+    ), metadata={"source": "Doc3", 'doc-id': 'doc-3'}),
+
+    Document(page_content=(
+        """The history of cinema began in the late 1800s. Silent films were the earliest form.
+        Thomas Edison was among the pioneers. Photosynthesis does not occur in animal cells.
+        Modern filmmaking involves complex CGI and sound design."""
+    ), metadata={"source": "Doc4", 'doc-id': 'doc-4'})
+]
+
+vector_store.add_documents(docs)
+base_retriever = vector_store.as_retriever(search_kwargs={'k':5})
+
+llm = ChatGroq(model='openai/gpt-oss-120b')
+
+compressor = LLMChainExtractor.from_llm(llm)
+
+compression_retriever = ContextualCompressionRetriever(
+    base_retriever=base_retriever,base_compressor=compressor
+)
+query = 'What is Photosynthesis?'
+compressed_results = compression_retriever.invoke(query)
+
+for i, doc in enumerate(compressed_results):
+    print(f'\n---Result {i+1}---')
+    print(doc.page_content)
+
+index.delete(delete_all=True)
